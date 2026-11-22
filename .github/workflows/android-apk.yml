@@ -1,4 +1,5 @@
 name: Build rbfx Android APK
+
 on:
   workflow_dispatch:
   push:
@@ -7,6 +8,8 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
+    env:
+      ci_arch: arm64
 
     steps:
       - name: Checkout repository
@@ -31,37 +34,21 @@ jobs:
               echo "$dir" >> $GITHUB_PATH
             fi
           done
-          ls -la "$SDK_ROOT" || true
           SDKMANAGER="$(command -v sdkmanager || find "$SDK_ROOT" -name sdkmanager -type f 2>/dev/null | head -n 1)"
           if [ -n "$SDKMANAGER" ]; then
             yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses > /dev/null 2>&1 || true
-            "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
-          else
-            echo "sdkmanager not found, using existing SDK at $SDK_ROOT"
+            "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0" || true
           fi
 
-      - name: Install build tools (CMake & Ninja)
+      - name: Install build tools (Gradle, CMake & Ninja)
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build
-
-      - name: Inspect project structure
-        run: |
-          ls -la
-          find . -maxdepth 3 -name "CMakeLists.txt" -o -name "gradlew"
+          sudo apt-get install -y gradle cmake ninja-build
 
       - name: Build Android project
         run: |
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
-            ./gradlew assembleDebug
-          elif [ -f "./android/gradlew" ]; then
-            chmod +x ./android/gradlew
-            (cd android && ./gradlew assembleDebug)
-          else
-            echo "Gradle wrapper not found in root or ./android"
-            exit 1
-          fi
+          cd android
+          gradle assembleDebug --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
